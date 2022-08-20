@@ -1,0 +1,35 @@
+extract $
+extract obj_props
+gs = import gamescene
+
+player = 2g
+arrow = 4g
+playColl = ?b
+WallColl = ?b
+
+direction = counter(0)
+xNy = [[0, 1], [1, 0], [0, -1], [-1, 0]]
+
+let move = [!{
+    -> player.move(xNy[i][0] *600, xNy[i][1] *600, 5)
+    -> arrow.move(xNy[i][0] *600, xNy[i][1] *600, 5)
+} for i in 0..4]
+
+on(gs.button_b(), !{
+    direction += 1
+    if direction == 4 {
+        direction = 0
+    }
+
+    arrow.rotate(player, 90, 0)
+})
+
+on(gs.button_a(), !{
+    move[direction.to_const(0..4)]!
+})
+
+on(gs.button_a_end(), !{
+    for j in move {
+        j.start_group.stop()
+    }
+})

@@ -1,0 +1,185 @@
+#[no_std, cache_output]
+
+constants = import "constants.spwn"
+extract constants.obj_props
+
+extract import "control_flow.spwn"
+
+#[desc("An api for runtime events, like player input, collisions, etc.")]
+type @event
+
+impl @event {
+    new: #[constructor, desc("Creates a new event"), example(u"
+        my_event = @event::new()
+
+        my_event.on(!{
+            @log::runtime::flash()
+        })
+
+        wait(5)
+        my_event.emit()
+    ")] (
+        #[desc("Group used for emitting and listening to the event")] let group: @group | @NULL = null,
+    ){
+        if group == null {
+            group = ?g
+        }
+        return @event::{
+            io: group,
+        }
+    },
+    on: #[desc("Triggers a function every time an event fires"), example(u"
+        on(touch(), !{
+            10g.move(10, 0)
+        })
+
+        // you can also use it as a decorator
+        [[ on(touch()) ]] !{
+            10g.move(10, 0)
+        }
+
+        // 'on' will suppress signals if the context in which it is defined never got triggered
+        on(touch(), !{
+            on(death(), !{
+                10g.move(10, 0) // dying won't do anything if you didn't touch up to that point
+            })
+        })
+        // you can negate this effect by doing `on(event, !{}, suppress = false)`
+    ")] (
+        self,
+        #[desc("Function to trigger")] function: @trigger_function|@group,
+        #[desc("Force suppression in current context")] suppress: @bool = true,
+    ) -> @NULL {
+        if suppress == false || $.trigger_fn_context() == 0g {
+            $.extend_trigger_func(self.io, (){
+                function!
+            })
+        } else {
+            locker = ?g
+            locker!
+            $.extend_trigger_func(self.io, (){
+                suppress_signal_until(locker)
+                function!
+            })
+        }
+    },
+    emit: #[desc("Triggers all listeners of this event"), example(u"
+        wait(5)
+        event.emit()
+    ", run_test = false)] (
+        self,
+    ) {
+        self.io!
+    },
+}
+
+return {
+
+    touch: #[desc("Implementation of the touch trigger (returns an event)"), example(u"
+        on(touch(), !{
+            10g.move(10, 0)
+        })
+    ")] (
+        #[desc("Dual mode (only check for touch on the dual side)")] dual_side: @bool = false
+    ) -> @event {
+        event = @event::new()
+        $.add( trigger{
+            OBJ_ID: 1595,
+            HOLD_MODE: true,
+            TOGGLE_MODE: 1,
+            TARGET: event.io,
+            DUAL_MODE: dual_side,
+        })
+        return event
+    },
+
+    touch_end: #[desc("Returns an event for when a touch ends"), example(u"
+        on(touch_end(), !{
+            10g.move(10, 0)
+        })
+    ")] (
+        #[desc("Dual mode (only check for touch on the dual side)")] dual_side: @bool = false
+    ) -> @event {
+        event = @event::new()
+        $.add( trigger{
+            OBJ_ID: 1595,
+            HOLD_MODE: true,
+            TOGGLE_MODE: 2,
+            TARGET: event.io,
+            DUAL_MODE: dual_side,
+        })
+        return event
+    },
+
+    collision: #[desc("Implementation of the collision trigger (returns an event)"), example(u"
+        on(collision(1b, 2b), !{
+            BG.set(rgb(0, 0, 0))
+        })
+    ")] (
+        #[desc("Block A ID")] a: @block,
+        #[desc("Block B ID")] b: @block
+    ) -> @event {
+        event = @event::new()
+        $.add( trigger{
+            OBJ_ID: 1815,
+            BLOCK_A: a,
+            BLOCK_B: b,
+            ACTIVATE_GROUP: true,
+            ACTIVATE_ON_EXIT: false,
+            TARGET: event.io,
+        })
+        return event
+    },
+
+    collision_exit: #[desc("Returns an event for when a collision exits"), example(u"
+        on(collision_exit(1b, 2b), !{
+            BG.set(rgb(0, 0, 0))
+        })
+    ")] (
+        #[desc("Block A ID")] a: @block,
+        #[desc("Block B ID")] b: @block
+    ) -> @event {
+        event = @event::new()
+        $.add( trigger{
+            OBJ_ID: 1815,
+            BLOCK_A: a,
+            BLOCK_B: b,
+            ACTIVATE_GROUP: true,
+            ACTIVATE_ON_EXIT: true,
+            TARGET: event.io,
+        })
+        return event
+    },
+
+
+    death: #[desc("Returns an event for when the player dies"), example(u"
+        on(death(), !{
+            BG.set(rgb(0, 0, 0))
+        })
+    ")] () -> @event {
+        event = @event::new()
+        $.add( trigger{
+            OBJ_ID: 1812,
+            ACTIVATE_GROUP: true,
+            TARGET: event.io,
+        })
+        return event
+    },
+
+    // count: #[desc("Implementation of a count trigger (returns an event)"), example(u"
+    //     on(count(4i, 3), !{
+    //         BG.set(rgb(0, 0, 0))
+    //     })
+    // ")] (it: @item, hits: @number, multi: @bool = true) -> @event {
+    //     event = @event::new()
+    //     $.add( trigger{
+    //         OBJ_ID: 1611,
+    //         ACTIVATE_GROUP: true,
+    //         TARGET: event.io,
+    //         ITEM: it,
+    //         COUNT: hits,
+    //         COUNT_MULTI_ACTIVATE: multi,
+    //     })
+    //     return event
+    // },
+}

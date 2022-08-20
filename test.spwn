@@ -1,0 +1,19 @@
+stuffs = [1g, 2g, 3g, 4g, 5g, 6g]
+selector = 7g
+
+extract obj_props
+extract $
+gs = import gamescene
+
+selected = counter(0)
+
+on(gs.button_a(), !{
+    selected += 1
+    if selected >= stuffs.length {
+        selected = 0
+    }
+    current_stuff = stuffs[selected.to_const(0..stuffs.length)]
+    selector.move_to(current_stuff)
+
+
+})
